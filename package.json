@@ -1,7 +1,7 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "find-my-ping",
-  "title": "Ping device",
+  "title": "Ping Device",
   "description": "Ping selected device with Find my",
   "icon": "Bell.png",
   "author": "rasmus_t",
