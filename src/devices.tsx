@@ -8,7 +8,6 @@ import {
   useNavigation,
   environment,
   getPreferenceValues,
-  Keyboard,
 } from "@raycast/api";
 import { runAppleScript } from "run-applescript";
 import { useState, useEffect } from "react";
@@ -21,7 +20,8 @@ interface Device {
 }
 
 interface Preferences {
-  siriKeybind: Keyboard.KeyEquivalent;
+  siriKeybind: string;
+  siriDelay: number;
 }
 
 function getIconPath(filename: string): string {
@@ -72,6 +72,9 @@ export default function Command() {
   }
 
   async function pingDevice(deviceName: string) {
+    const { key, modifiers } = parseHotkey(preferences.siriKeybind);
+    const delay = preferences.siriDelay;
+
     const keycodeMap: Record<string, number> = {
       f13: 105,
       f14: 107,
@@ -83,9 +86,11 @@ export default function Command() {
       f20: 90,
     };
 
-    const { key, modifiers } = parseHotkey(preferences.siriKeybind);
     const keycode = keycodeMap[key.toLowerCase()];
 
+    if (!keycode && key.toLowerCase().startsWith("f")) {
+      throw new Error(`Unsupported function key: ${key}. Only f13-f20 are supported.`);
+    }
     const modifierString = modifiers.length > 0 ? ` using {${modifiers.join(", ")}}` : "";
     const keyCommand = keycode ? `key code ${keycode}${modifierString}` : `keystroke "${key}"${modifierString}`;
 
@@ -93,7 +98,7 @@ export default function Command() {
     tell application "System Events"
       ${keyCommand}
     end tell
-    delay 1
+    delay ${delay}
     tell application "System Events"
       keystroke "where's my ${deviceName}"
       delay 0.3

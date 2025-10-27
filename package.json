@@ -24,6 +24,14 @@
           "description": "Format: cmd+f13 or cmd+shift+s, fn is not supported",
           "default": "cmd+f13",
           "placeholder": "cmd+f13"
+        },
+        {
+          "name": "siriDelay",
+          "type": "textfield",
+          "required": false,
+          "title": "Siri Delay",
+          "description": "Delay in seconds after triggering Siri for inputing text",
+          "default": "1.5"
         }
       ]
     }
