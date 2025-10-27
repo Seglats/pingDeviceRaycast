@@ -3,9 +3,7 @@
 
 Ping selected device with Find My. Works with devices accessible through iCloud. Note: Different Siri languages may require adjustments. This extension uses Siri because Find My does not have an internal or external API.
 
-To get it to work, either change the shortcut this extension uses or change the Siri shortcut. Currently it's `cmd+f13`.
-You may also need to change the name to the exact name to match the ones in your iCloud account. 
-Works for most people with just "Iphone" but might be a problem if you have multiple "Iphones"...
+For it to work use the same shortcut as you have siri if you don't have a shortcut and generally do not use siri i recommend leaving it on the default "cmd + f13", then go in to settings siri and when you see configure shortcut go back to raycat go in to settings of the extension "cmd+shift+," and do "cmd+r" which will wait 10 seconds and then do that shortcut. Click on configure and wait for it to input.
 
 ### WIP - Todo
   - add more device icons

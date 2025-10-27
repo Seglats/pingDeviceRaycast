@@ -40,6 +40,10 @@ function parseHotkey(hotkey: string) {
   return { key, modifiers };
 }
 
+function sanitizeForAppleScript(input: string): string {
+  return input.replace(/[\\"]/g, "\\$&");
+}
+
 function validateDelay(value: string): string | undefined {
   const num = parseFloat(value);
   if (isNaN(num)) return "Delay must be a number";
@@ -69,6 +73,13 @@ function validateKeybind(value: string): string | undefined {
     return "Key must be f13-f20 or a single character";
   }
 
+  return undefined;
+}
+
+function validateDeviceName(name: string): string | undefined {
+  if (!name.trim()) return "Name required";
+  if (name.length > 50) return "Name too long";
+  if (/[";\\]/.test(name)) return "Invalid characters";
   return undefined;
 }
 
@@ -128,7 +139,16 @@ function AddDeviceForm({ onSubmit }: { onSubmit: (name: string, icon: string) =>
       actions={
         <ActionPanel>
           <Action.SubmitForm
-            onSubmit={(values) => {
+            onSubmit={async (values) => {
+              const error = validateDeviceName(values.name);
+              if (error) {
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "Invalid device name",
+                  message: error,
+                });
+                return;
+              }
               onSubmit(values.name, values.icon);
               pop();
             }}
@@ -274,8 +294,10 @@ export default function Command() {
 
   async function pingDevice(deviceName: string) {
     try {
-      const savedKeybind = await LocalStorage.getItem<string>("siriKeybind");
-      const savedDelay = await LocalStorage.getItem<string>("siriDelay");
+      const [savedKeybind, savedDelay] = await Promise.all([
+        LocalStorage.getItem<string>("siriKeybind"),
+        LocalStorage.getItem<string>("siriDelay"),
+      ]);
       const keybind = savedKeybind || "cmd+f13";
       const delay = parseFloat(savedDelay || "1");
       const { key, modifiers } = parseHotkey(keybind);
@@ -317,7 +339,7 @@ export default function Command() {
     end tell
     delay ${delay}
     tell application "System Events"
-      keystroke "ping my ${deviceName}"
+      keystroke "ping my ${sanitizeForAppleScript(deviceName)}"
       delay 0.3
       key code 36
     end tell
