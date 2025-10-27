@@ -10,3 +10,11 @@ You also may need to change name to reflect the ones in your icloud.
   - add more devices icons
 
 Icons made by me
+
+## install before its published 
+```bash
+git clone git@github.com:Seglats/pingDeviceRaycast.git
+cd pingDeviceRaycast
+npm install
+npm run dev
+```
