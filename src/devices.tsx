@@ -100,7 +100,7 @@ export default function Command() {
     end tell
     delay ${delay}
     tell application "System Events"
-      keystroke "where's my ${deviceName}"
+      keystroke "ping my ${deviceName}"
       delay 0.3
       key code 36
     end tell
