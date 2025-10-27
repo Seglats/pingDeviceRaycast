@@ -1,4 +1,15 @@
-import { ActionPanel, Action, Icon, List, Form, LocalStorage, useNavigation, environment } from "@raycast/api";
+import {
+  ActionPanel,
+  Action,
+  Icon,
+  List,
+  Form,
+  LocalStorage,
+  useNavigation,
+  environment,
+  getPreferenceValues,
+  Keyboard,
+} from "@raycast/api";
 import { runAppleScript } from "run-applescript";
 import { useState, useEffect } from "react";
 import path from "path";
@@ -9,6 +20,10 @@ interface Device {
   icon: string;
 }
 
+interface Preferences {
+  siriKeybind: Keyboard.KeyEquivalent;
+}
+
 function getIconPath(filename: string): string {
   const appearance = environment.appearance;
   const mode = appearance === "dark" ? "DarkMode" : "LightMode";
@@ -17,6 +32,7 @@ function getIconPath(filename: string): string {
 
 export default function Command() {
   const [devices, setDevices] = useState<Device[]>([]);
+  const preferences = getPreferenceValues<Preferences>();
 
   useEffect(() => {
     LocalStorage.getItem<string>("devices").then((data) => {
@@ -41,20 +57,27 @@ export default function Command() {
   function removeDevice(id: string) {
     saveDevices(devices.filter((d) => d.id !== id));
   }
-
-  async function pingDevice(deviceName: string) {
-    await runAppleScript(`
-      tell application "System Events"
-        key code 105 using {command down}
-      end tell
-      delay 1
-      tell application "System Events"
-        keystroke "where's my ${deviceName}"
-        key code 36
-      end tell
-    `);
+  function parseHotkey(hotkey: string) {
+    const parts = hotkey.split("+");
+    const key = parts[parts.length - 1];
+    const modifiers = parts.slice(0, -1).map((m) => m + " down");
+    return { key, modifiers };
   }
 
+  async function pingDevice(deviceName: string) {
+    const { key, modifiers } = parseHotkey(preferences.siriKeybind);
+
+    await runAppleScript(`
+    tell application "System Events"
+      keystroke "${key}" using {${modifiers.join(", ")}}
+    end tell
+    delay 1
+    tell application "System Events"
+      keystroke "where's my ${deviceName}"
+      key code 36
+    end tell
+  `);
+  }
   return (
     <List>
       {devices.map((device) => (
