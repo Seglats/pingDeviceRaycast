@@ -7,7 +7,10 @@ import {
   LocalStorage,
   useNavigation,
   environment,
-  getPreferenceValues,
+  showToast,
+  Toast,
+  showHUD,
+  closeMainWindow,
 } from "@raycast/api";
 import { runAppleScript } from "run-applescript";
 import { useState, useEffect } from "react";
@@ -19,124 +22,71 @@ interface Device {
   icon: string;
 }
 
-interface Preferences {
-  siriKeybind: string;
-  siriDelay: string;
-}
-
 function getIconPath(filename: string): string {
   const appearance = environment.appearance;
   const mode = appearance === "dark" ? "DarkMode" : "LightMode";
   return path.join(environment.assetsPath, mode, filename);
 }
 
-export default function Command() {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const preferences = getPreferenceValues<Preferences>();
+function parseHotkey(hotkey: string) {
+  const parts = hotkey.split("+");
+  const key = parts[parts.length - 1];
+  const modifierMap: Record<string, string> = {
+    cmd: "command",
+    ctrl: "control",
+    opt: "option",
+    shift: "shift",
+  };
+  const modifiers = parts.slice(0, -1).map((m) => `${modifierMap[m] || m} down`);
+  return { key, modifiers };
+}
 
-  useEffect(() => {
-    LocalStorage.getItem<string>("devices").then((data) => {
-      setDevices(data ? JSON.parse(data) : []);
-    });
-  }, []);
+async function simulateKeybind(keybindString: string) {
+  await closeMainWindow();
+  const { key, modifiers } = parseHotkey(keybindString);
 
-  function saveDevices(newDevices: Device[]) {
-    LocalStorage.setItem("devices", JSON.stringify(newDevices));
-    setDevices(newDevices);
+  const keycodeMap: Record<string, number> = {
+    f13: 105,
+    f14: 107,
+    f15: 113,
+    f16: 106,
+    f17: 64,
+    f18: 79,
+    f19: 80,
+    f20: 90,
+  };
+
+  const keycode = keycodeMap[key.toLowerCase()];
+
+  if (!keycode && key.toLowerCase().startsWith("f")) {
+    throw new Error(`Unsupported function key: ${key}. Only f13-f20 are supported.`);
   }
 
-  function addDevice(name: string, icon: string) {
-    const newDevice: Device = {
-      id: String(Date.now()),
-      name,
-      icon,
-    };
-    saveDevices([...devices, newDevice]);
+  const modifierString = modifiers.length > 0 ? ` using {${modifiers.join(", ")}}` : "";
+  const keyCommand = keycode ? `key code ${keycode}${modifierString}` : `keystroke "${key}"${modifierString}`;
+
+  const toast = await showToast({
+    style: Toast.Style.Animated,
+    title: "Simulating in 10 seconds...",
+  });
+
+  for (let i = 9; i >= 0; i--) {
+    toast.title = `Simulating in ${i + 1} seconds...`;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
-  function removeDevice(id: string) {
-    saveDevices(devices.filter((d) => d.id !== id));
-  }
+  await toast.hide();
 
-  function parseHotkey(hotkey: string) {
-    const parts = hotkey.split("+");
-    const key = parts[parts.length - 1];
-    const modifierMap: Record<string, string> = {
-      cmd: "command",
-      ctrl: "control",
-      opt: "option",
-      shift: "shift",
-    };
-    const modifiers = parts.slice(0, -1).map((m) => `${modifierMap[m] || m} down`);
-    return { key, modifiers };
-  }
+  await runAppleScript(`
+  tell application "System Events"
+    ${keyCommand}
+  end tell
+`);
 
-  async function pingDevice(deviceName: string) {
-    const { key, modifiers } = parseHotkey(preferences.siriKeybind);
-    const delay = parseFloat(preferences.siriDelay);
-
-    const keycodeMap: Record<string, number> = {
-      f13: 105,
-      f14: 107,
-      f15: 113,
-      f16: 106,
-      f17: 64,
-      f18: 79,
-      f19: 80,
-      f20: 90,
-    };
-
-    const keycode = keycodeMap[key.toLowerCase()];
-
-    if (!keycode && key.toLowerCase().startsWith("f")) {
-      throw new Error(`Unsupported function key: ${key}. Only f13-f20 are supported.`);
-    }
-    const modifierString = modifiers.length > 0 ? ` using {${modifiers.join(", ")}}` : "";
-    const keyCommand = keycode ? `key code ${keycode}${modifierString}` : `keystroke "${key}"${modifierString}`;
-
-    await runAppleScript(`
-    tell application "System Events"
-      ${keyCommand}
-    end tell
-    delay ${delay}
-    tell application "System Events"
-      keystroke "ping my ${deviceName}"
-      delay 0.3
-      key code 36
-    end tell
-  `);
-  }
-  return (
-    <List>
-      {devices.map((device) => (
-        <List.Item
-          key={device.id}
-          icon={getIconPath(device.icon)}
-          title={device.name}
-          actions={
-            <ActionPanel>
-              <Action title="Ping Device" onAction={() => pingDevice(device.name)} />
-              <Action
-                title="Remove Device"
-                icon={Icon.Trash}
-                onAction={() => removeDevice(device.id)}
-                style={Action.Style.Destructive}
-              />
-            </ActionPanel>
-          }
-        />
-      ))}
-      <List.Item
-        title="Add Device..."
-        icon={Icon.Plus}
-        actions={
-          <ActionPanel>
-            <Action.Push title="Add Device" target={<AddDeviceForm onSubmit={addDevice} />} />
-          </ActionPanel>
-        }
-      />
-    </List>
-  );
+  await showToast({
+    style: Toast.Style.Success,
+    title: "Keybind simulated",
+  });
 }
 
 function AddDeviceForm({ onSubmit }: { onSubmit: (name: string, icon: string) => void }) {
@@ -164,5 +114,250 @@ function AddDeviceForm({ onSubmit }: { onSubmit: (name: string, icon: string) =>
         <Form.Dropdown.Item value="AirpodsPro.png" title="AirPods Pro" />
       </Form.Dropdown>
     </Form>
+  );
+}
+
+function OnboardingForm({ onComplete }: { onComplete: () => void }) {
+  const [keybind, setKeybind] = useState("");
+  const [delay, setDelay] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([LocalStorage.getItem<string>("siriKeybind"), LocalStorage.getItem<string>("siriDelay")]).then(
+      ([savedKeybind, savedDelay]) => {
+        setKeybind(savedKeybind || "cmd+f13");
+        setDelay(savedDelay || "1");
+        setIsLoading(false);
+      },
+    );
+  }, []);
+
+  async function handleSubmit() {
+    await LocalStorage.setItem("siriKeybind", keybind);
+    await LocalStorage.setItem("siriDelay", delay);
+    await showToast({
+      style: Toast.Style.Success,
+      title: "Settings saved",
+    });
+    onComplete();
+  }
+
+  async function handleSimulate() {
+    await LocalStorage.setItem("siriKeybind", keybind);
+    await LocalStorage.setItem("siriDelay", delay);
+    await simulateKeybind(keybind);
+  }
+  if (isLoading) {
+    return <Form isLoading={true} />;
+  }
+
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action
+            title="Continue"
+            onAction={async () => {
+              await handleSubmit();
+            }}
+            shortcut={{ modifiers: ["cmd"], key: "return" }}
+          />
+          <Action
+            title="Run Keybind"
+            icon={Icon.Keyboard}
+            onAction={handleSimulate}
+            shortcut={{ modifiers: ["cmd"], key: "r" }}
+          />
+        </ActionPanel>
+      }
+    >
+      <Form.TextField
+        id="keybind"
+        title="Siri Keyboard Shortcut"
+        placeholder="cmd+f13"
+        value={keybind}
+        onChange={setKeybind}
+      />
+      <Form.TextField id="delay" title="Siri Delay (seconds)" placeholder="1" value={delay} onChange={setDelay} />
+      <Form.Description text="Fn key is not supported" />
+      <Form.Description text="Press cmd+r to simulate the button press" />
+      <Form.Description text="Press cmd+enter to proceed" />
+    </Form>
+  );
+}
+
+export default function Command() {
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    Promise.all([LocalStorage.getItem<string>("devices"), LocalStorage.getItem<string>("hasOnboarded")]).then(
+      ([devicesData, onboardedData]) => {
+        setDevices(devicesData ? JSON.parse(devicesData) : []);
+        setHasOnboarded(onboardedData === "true");
+      },
+    );
+  }, []);
+
+  async function completeOnboarding() {
+    await LocalStorage.setItem("hasOnboarded", "true");
+    setHasOnboarded(true);
+  }
+
+  if (hasOnboarded === null) {
+    return <List isLoading={true} />;
+  }
+
+  if (!hasOnboarded) {
+    return <OnboardingForm onComplete={completeOnboarding} />;
+  }
+
+  function saveDevices(newDevices: Device[]) {
+    LocalStorage.setItem("devices", JSON.stringify(newDevices));
+    setDevices(newDevices);
+  }
+
+  function addDevice(name: string, icon: string) {
+    const newDevice: Device = {
+      id: String(Date.now()),
+      name,
+      icon,
+    };
+    saveDevices([...devices, newDevice]);
+  }
+
+  function removeDevice(id: string) {
+    saveDevices(devices.filter((d) => d.id !== id));
+  }
+
+  async function pingDevice(deviceName: string) {
+    try {
+      const savedKeybind = await LocalStorage.getItem<string>("siriKeybind");
+      const savedDelay = await LocalStorage.getItem<string>("siriDelay");
+      const keybind = savedKeybind || "cmd+f13";
+      const delay = parseFloat(savedDelay || "1");
+      const { key, modifiers } = parseHotkey(keybind);
+
+      if (isNaN(delay) || delay < 0) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Invalid delay value",
+          message: "Siri delay must be a valid positive number",
+        });
+        return;
+      }
+
+      const keycodeMap: Record<string, number> = {
+        f13: 105,
+        f14: 107,
+        f15: 113,
+        f16: 106,
+        f17: 64,
+        f18: 79,
+        f19: 80,
+        f20: 90,
+      };
+
+      const keycode = keycodeMap[key.toLowerCase()];
+
+      if (!keycode && key.toLowerCase().startsWith("f")) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Unsupported function key",
+          message: `${key} is not supported. Only f13-f20 are supported.`,
+        });
+        return;
+      }
+
+      const modifierString = modifiers.length > 0 ? ` using {${modifiers.join(", ")}}` : "";
+      const keyCommand = keycode ? `key code ${keycode}${modifierString}` : `keystroke "${key}"${modifierString}`;
+
+      await showToast({
+        style: Toast.Style.Animated,
+        title: "Pinging device...",
+        message: deviceName,
+      });
+
+      await runAppleScript(`
+    tell application "System Events"
+      ${keyCommand}
+    end tell
+    delay ${delay}
+    tell application "System Events"
+      keystroke "ping my ${deviceName}"
+      delay 0.3
+      key code 36
+    end tell
+  `);
+
+      await showToast({
+        style: Toast.Style.Success,
+        title: "Ping sent",
+        message: deviceName,
+      });
+    } catch (error) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to ping device",
+        message: error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    }
+  }
+
+  return (
+    <List>
+      {devices.map((device) => (
+        <List.Item
+          key={device.id}
+          icon={getIconPath(device.icon)}
+          title={device.name}
+          actions={
+            <ActionPanel>
+              <Action title="Ping Device" onAction={() => pingDevice(device.name)} />
+              <Action.Push
+                title="Settings"
+                icon={Icon.Gear}
+                target={
+                  <OnboardingForm
+                    onComplete={() => {
+                      setHasOnboarded(true); // Triggers re-render
+                    }}
+                  />
+                }
+                shortcut={{ modifiers: ["cmd", "shift"], key: "," }}
+              />
+              <Action
+                title="Remove Device"
+                icon={Icon.Trash}
+                onAction={() => removeDevice(device.id)}
+                style={Action.Style.Destructive}
+                shortcut={{ modifiers: ["ctrl"], key: "x" }}
+              />
+            </ActionPanel>
+          }
+        />
+      ))}
+      <List.Item
+        title="Add Device..."
+        icon={Icon.Plus}
+        actions={
+          <ActionPanel>
+            <Action.Push title="Add Device" target={<AddDeviceForm onSubmit={addDevice} />} />
+            <Action.Push
+              title="Settings"
+              icon={Icon.Gear}
+              target={
+                <OnboardingForm
+                  onComplete={() => {
+                    setHasOnboarded(true); // Triggers re-render
+                  }}
+                />
+              }
+              shortcut={{ modifiers: ["cmd", "shift"], key: "," }}
+            />
+          </ActionPanel>
+        }
+      />
+    </List>
   );
 }
