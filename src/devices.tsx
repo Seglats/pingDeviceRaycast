@@ -9,7 +9,6 @@ import {
   environment,
   showToast,
   Toast,
-  showHUD,
   closeMainWindow,
 } from "@raycast/api";
 import { runAppleScript } from "run-applescript";
@@ -39,6 +38,38 @@ function parseHotkey(hotkey: string) {
   };
   const modifiers = parts.slice(0, -1).map((m) => `${modifierMap[m] || m} down`);
   return { key, modifiers };
+}
+
+function validateDelay(value: string): string | undefined {
+  const num = parseFloat(value);
+  if (isNaN(num)) return "Delay must be a number";
+  if (num < 0) return "Delay cannot be negative";
+  if (num > 10) return "Delay cannot exceed 10 seconds";
+  return undefined;
+}
+
+function validateKeybind(value: string): string | undefined {
+  if (!value) return "Keybind cannot be empty";
+
+  const parts = value.split("+");
+  if (parts.length < 2) return "Keybind must have modifiers (e.g., cmd+f13)";
+
+  const key = parts[parts.length - 1].toLowerCase();
+  const validModifiers = ["cmd", "ctrl", "opt", "shift"];
+  const modifiers = parts.slice(0, -1);
+
+  for (const mod of modifiers) {
+    if (!validModifiers.includes(mod.toLowerCase())) {
+      return `Invalid modifier: ${mod}`;
+    }
+  }
+
+  const supportedKeys = ["f13", "f14", "f15", "f16", "f17", "f18", "f19", "f20"];
+  if (!supportedKeys.includes(key) && key.length !== 1) {
+    return "Key must be f13-f20 or a single character";
+  }
+
+  return undefined;
 }
 
 async function simulateKeybind(keybindString: string) {
@@ -133,6 +164,17 @@ function OnboardingForm({ onComplete }: { onComplete: () => void }) {
   }, []);
 
   async function handleSubmit() {
+    const keybindError = validateKeybind(keybind);
+    const delayError = validateDelay(delay);
+    if (keybindError || delayError) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Invalid input",
+        message: keybindError || delayError,
+      });
+      return;
+    }
+
     await LocalStorage.setItem("siriKeybind", keybind);
     await LocalStorage.setItem("siriDelay", delay);
     await showToast({
@@ -237,15 +279,6 @@ export default function Command() {
       const keybind = savedKeybind || "cmd+f13";
       const delay = parseFloat(savedDelay || "1");
       const { key, modifiers } = parseHotkey(keybind);
-
-      if (isNaN(delay) || delay < 0) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "Invalid delay value",
-          message: "Siri delay must be a valid positive number",
-        });
-        return;
-      }
 
       const keycodeMap: Record<string, number> = {
         f13: 105,
