@@ -8,3 +8,5 @@ You also may need to change name to reflect the ones in your icloud.
 
 ### WIP - Todo
   - add more devices icons
+
+Icons made by me
