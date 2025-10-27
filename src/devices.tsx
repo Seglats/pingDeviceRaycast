@@ -1,6 +1,7 @@
 import { ActionPanel, Action, Icon, List, Form, LocalStorage, useNavigation, environment } from "@raycast/api";
 import { runAppleScript } from "run-applescript";
 import { useState, useEffect } from "react";
+import path from "path";
 
 interface Device {
   id: string;
@@ -9,9 +10,9 @@ interface Device {
 }
 
 function getIconPath(filename: string): string {
-  const appearance = environment.appearance; // "light" or "dark"
+  const appearance = environment.appearance;
   const mode = appearance === "dark" ? "DarkMode" : "LightMode";
-  return `assets/${mode}/${filename}`;
+  return path.join(environment.assetsPath, mode, filename);
 }
 
 export default function Command() {

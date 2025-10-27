@@ -3,11 +3,10 @@
   "name": "ping",
   "title": "Ping",
   "description": "Ping selected device with Find my",
-  "icon": "pingSound.png",
+  "icon": "Bell.png",
   "author": "rasmus_t",
   "platforms": [
-    "macOS",
-    "Windows"
+    "macOS"
   ],
   "license": "MIT",
   "commands": [
