@@ -245,8 +245,7 @@ function OnboardingForm({ onComplete }: { onComplete: () => void }) {
       <Form.Description text="Use default if you don't want to have a keybind that can interfere" />
       <Form.Description text="Ether input the shortcut to siri yourself or do 'cmd+r' to simulate keybind for inputing shortcut" />
       <Form.Description text="Apple intelegence is required, cause it makes it into text input" />
-       <Form.Description text="Change timing to make it faster might break the script on slower hardware" />
-
+      <Form.Description text="Change timing to make it faster might break the script on slower hardware" />
     </Form>
   );
 }
