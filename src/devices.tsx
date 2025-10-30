@@ -241,11 +241,11 @@ function OnboardingForm({ onComplete }: { onComplete: () => void }) {
         onChange={setKeybind}
       />
       <Form.TextField id="delay" title="Siri Delay (seconds)" placeholder="1" value={delay} onChange={setDelay} />
-      <Form.Description text="Input shortcut you have or want (FN key shortcut will not work with this)" />
-      <Form.Description text="Use default if you don't want to have a keybind that can interfere" />
-      <Form.Description text="Ether input the shortcut to siri yourself or do 'cmd+r' to simulate keybind for inputing shortcut" />
-      <Form.Description text="Apple intelegence is required, cause it makes it into text input" />
-      <Form.Description text="Change timing to make it faster might break the script on slower hardware" />
+      <Form.Description text="Input the shortcut you have or want (Fn key shortcuts will not work)" />
+      <Form.Description text="Use default if you don't want a keybind that might interfere" />
+      <Form.Description text="Either input the shortcut to Siri yourself or use 'cmd+r' to simulate the keybind" />
+      <Form.Description text="Apple Intelligence is required for text input to Siri" />
+      <Form.Description text="Lowering the timing may break the script on slower hardware" />
     </Form>
   );
 }
